@@ -1,0 +1,59 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  name: Default
+
+variables:
+  - group: terraform-credentials 
+
+stages:
+  - stage: Plan
+    displayName: Terraform Plan
+    jobs:
+      - job: Plan
+        steps:
+          - task: TerraformInstaller@1
+            inputs:
+              terraformVersion: "latest"
+
+          - bash: |
+              terraform init -reconfigure
+              terraform plan -out=tfplan
+            displayName: Init and Plan
+            workingDirectory: $(Build.SourcesDirectory)
+            env:
+              ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+              ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
+              ARM_TENANT_ID: $(ARM_TENANT_ID)
+              ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
+
+          - publish: $(Build.SourcesDirectory)/tfplan
+            artifact: tfplan
+
+  - stage: Apply
+    dependsOn: Plan
+    jobs:
+      - deployment: Apply
+        environment: terraform-apply
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+                - task: TerraformInstaller@1
+                  inputs:
+                    terraformVersion: "latest"
+
+                - bash: |
+                    terraform init -reconfigure
+                    terraform apply -auto-approve $(Pipeline.Workspace)/tfplan/tfplan
+                  displayName: Terraform Apply
+                  workingDirectory: $(Build.SourcesDirectory)
+                  env:
+                    ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+                    ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
+                    ARM_TENANT_ID: $(ARM_TENANT_ID)
+                    ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
