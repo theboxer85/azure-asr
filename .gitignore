@@ -1,0 +1,6 @@
+# Terraform lock files
+.terraform.lock.hcl
+
+# Draw.io files
+*.drawio
+*.drawio.png
